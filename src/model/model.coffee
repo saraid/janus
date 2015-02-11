@@ -370,22 +370,10 @@ class Model extends Base
             else
               result.setValue(this.modified(deep))
 
-        # wait for varying to resolve into a model, then stop watching it.
-        watchVarying = (varying) =>
-          resolveVarying = (model) =>
-            if model instanceof Model
-              this._subvaryings().remove(varying)
-              this._submodels().add(model)
-              varying.off('changed', resolveVarying) # stop reacting.
-          varying.react resolveVarying
-
         uniqSubmodels = this._submodels().uniq()
-        uniqSubvaryings = this._subvaryings().uniq()
         watchModel(model) for model in uniqSubmodels.list
-        watchVarying(varying) for varying in uniqSubvaryings.list
         uniqSubmodels.on('added', (newModel) => watchModel(newModel))
         uniqSubmodels.on('removed', (oldModel) -> result.unlistenTo(oldModel.watchModified(deep)))
-        uniqSubvaryings.on('added', (newVarying) => watchVarying(newVarying))
 
         result
 
@@ -538,9 +526,23 @@ class Model extends Base
     this._submodels().remove(oldValue) if oldValue instanceof Model
     this._submodels().add(newValue) if newValue instanceof Model
 
-    # track all our subvaryings.
-    this._subvaryings().remove(oldValue) if oldValue instanceof Varying
-    this._subvaryings().add(newValue) if newValue instanceof Varying
+    # track all our subreferences.
+    this._subreferences().remove(oldValue) if oldValue instanceof Reference
+    if newValue instanceof Reference
+      this._subreferences().add(newValue)
+
+      # track references and convert them to submodels on resolution.
+      this._watchSubreferences$ ?= do =>
+        watchReference = (ref) =>
+          resolveReference = (model) =>
+            if model instanceof Model and ref in uniqSubreferences
+              this._subreferences().remove(ref)
+              this._submodels().add(model)
+              ref.off('changed', resolveReference)
+          ref.reactNow resolveReference
+
+        uniqSubreferences = this._subreferences().uniq()
+        uniqSubreferences.on('added', (newReference) => watchReference(newReference))
 
     # emit helper.
     emit = (name, partKey) => this.emit("#{name}:#{partKey}", newValue, oldValue, partKey)
@@ -558,10 +560,10 @@ class Model extends Base
 
     null
 
-  # Returns the submodel and subvarying list for this class. Instantiates lazily when
+  # Returns the submodel and subreference list for this class. Instantiates lazily when
   # requested otherwise we get stack overflow.
   _submodels: -> this._submodels$ ?= new (require('../collection/list').List)()
-  _subvaryings: -> this._subvaryings$ ?= new (require('../collection/list').List)()
+  _subreferences: -> this._subreferences$ ?= new (require('../collection/list').List)()
 
 
 # Export.
