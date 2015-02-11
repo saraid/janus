@@ -166,13 +166,24 @@ class Model extends Base
       varying.listenTo(this, "changed:#{key}", (newValue) -> varying.setValue(newValue))
 
   # Get a `Varying` object for this entire object. It will emit a change event
-  # any time any attribute on the entire object changes. Does not event when
-  # nested model attributes change, however.
+  # any time any attribute on the entire object changes.
   #
   # **Returns** a `Varying` object against our whole model.
-  watchAll: ->
+  watchAll: (deep = false)  ->
     varying = new Varying(this)
     varying.listenTo(this, 'anyChanged', => varying.setValue(this, true))
+    if deep
+      watchModel = (model) =>
+        varying.listenTo(model, 'anyChanged', =>
+          model.watchAll(deep).react => varying.setValue(this, true)
+          varying.setValue(this, true))
+
+      uniqSubmodels = this._submodels().uniq()
+      watchModel(model) for model in uniqSubmodels.list
+      uniqSubmodels.on('added', (newModel) => watchModel(newModel))
+      uniqSubmodels.on('removed', (oldModel) -> varying.unlistenTo(oldModel.watchAll(deep)))
+
+    varying
 
   # Class-level storage bucket for attribute schema definition.
   @attributes: ->

@@ -742,3 +742,40 @@ describe 'Model', ->
           shadow.get('test').setValue(submodel)
           submodel.set('testSub', 'y')
 
+      describe 'watch for changes', ->
+        it 'should event for every modification', ->
+          model = new Model()
+          shadow = model.shadow()
+
+          eventedTimes = 0
+          shadow.watchAll().reactNow (passedModel) ->
+            passedModel.should.equal(shadow)
+            eventedTimes++
+
+          eventedTimes.should.equal(1)
+          shadow.set('test', 'x')
+          eventedTimes.should.equal(2)
+          shadow.modified().should.be.true
+          shadow.set('test2', 'y')
+          eventedTimes.should.equal(3)
+          shadow.modified().should.be.true
+
+        it 'should event for every modification deeply', ->
+          model = new Model()
+          shadow = model.shadow()
+
+          eventedTimes = 0
+          shadow.watchAll(true).reactNow (passedModel) ->
+            passedModel.should.equal(shadow)
+            eventedTimes++
+
+          eventedTimes.should.equal(1)
+          shadow.set('test', new Model())
+          eventedTimes.should.equal(2)
+          shadow.modified().should.be.true
+          shadow.get('test').set('test2', new Model())
+          eventedTimes.should.equal(3)
+          shadow.modified().should.be.true
+          shadow.get('test').get('test2').set('test3', new Model())
+          eventedTimes.should.equal(4)
+          shadow.modified().should.be.true
