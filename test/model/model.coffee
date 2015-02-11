@@ -730,9 +730,9 @@ describe 'Model', ->
           shadow.get('test').set('a', 'b')
           evented.should.equal(true)
 
-        it 'should vary when a Reference resolves', ->
-          varying = new Reference()
-          model = new Model( test: varying )
+        it 'should vary when a subreference resolves', ->
+          ref = new Reference()
+          model = new Model( test: ref )
           shadow = model.shadow()
 
           expected = [  false, true ]
@@ -741,4 +741,39 @@ describe 'Model', ->
           submodel = (new Model()).shadow()
           shadow.get('test').setValue(submodel)
           submodel.set('testSub', 'y')
+          expected.length.should.equal(0)
 
+        it 'should not vary when a removed Reference is resolved', ->
+          ref = new Reference()
+          model = new Model()
+          shadow = model.shadow()
+
+          expected = [ false, true, false, true ]
+          shadow.watchModified().reactNow((isModified) -> isModified.should.equal(expected.shift()))
+
+          shadow.set('test', ref)
+          shadow.revert('test')
+          ref.setValue(new Model().shadow())
+          expected.length.should.equal(1)
+
+        it 'should not vary when a transient subreference resolves', ->
+          class Test extends Model
+            @attribute 'test', class extends attribute.Attribute
+              transient: true
+
+          ref = new Reference()
+          model = new Test( test: ref )
+          shadow = model.shadow()
+
+          expected = [  false, true ]
+          eventedTimes = 0
+          shadow.watchModified().reactNow((isModified) ->
+            isModified.should.equal(expected.shift())
+            eventedTimes++
+          )
+
+          eventedTimes.should.equal(1)
+          submodel = (new Model()).shadow()
+          shadow.get('test').setValue(submodel)
+          submodel.set('testSub', 'y')
+          eventedTimes.should.equal(1)
