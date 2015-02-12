@@ -297,6 +297,32 @@ class List extends OrderedCollection
 
         result
 
+  watchAll: (deep = false) ->
+    varying = new Varying(this)
+    varying.listenTo(this, 'anyChanged', => varying.setValue(this, true))
+    if deep
+      watchModel = (model) =>
+        varying.listenTo(model, 'anyChanged', =>
+          model.watchAll(deep).react => varying.setValue(this, true)
+          varying.setValue(this, true))
+
+      react = => varying.setValue(this, true)
+
+      this.on('added', react)
+      this.on('removed', react)
+      this.on('moved', react)
+
+      uniqSubmodels = this
+        .map((elem) -> elem) # flatten references.
+        .filter((elem) -> elem instanceof Model)
+        .uniq()
+
+      watchModel(model) for model in uniqSubmodels.list
+      uniqSubmodels.on('added', (newModel) -> watchModel(newModel))
+      uniqSubmodels.on('removed', (oldModel) -> varying.unlistenTo(oldModel.watchAll(deep)))
+
+    varying
+
   # Handles elements as they're added. Returns possibly the same array of
   # possibly the same elements, to be added.
   #

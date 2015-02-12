@@ -785,10 +785,25 @@ describe 'Model', ->
           eventedTimes.should.equal(1)
           shadow.set('test', new Model())
           eventedTimes.should.equal(2)
-          shadow.modified().should.be.true
           shadow.get('test').set('test2', new Model())
           eventedTimes.should.equal(3)
-          shadow.modified().should.be.true
           shadow.get('test').get('test2').set('test3', new Model())
           eventedTimes.should.equal(4)
-          shadow.modified().should.be.true
+
+        it 'should event for every modification deeply on lists', ->
+          list = new collection.List()
+
+          eventedTimes = 0
+          list.watchAll(true).reactNow (passedModel) ->
+            console.log(passedModel.list)
+            passedModel.should.equal(list)
+            eventedTimes++
+
+          eventedTimes.should.equal(1)
+          shadow = (new Model()).shadow()
+          list.add(shadow)
+          eventedTimes.should.equal(2)
+          shadow.set('test', new Model())
+          eventedTimes.should.equal(3)
+          shadow.get('test').set('test2', new Model())
+          eventedTimes.should.equal(4)
